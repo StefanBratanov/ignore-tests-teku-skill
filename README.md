@@ -1,4 +1,4 @@
-# ignore-tests-teku
+# ignore-tests-teku-skill
 
 An agent skill for working on [Teku](https://github.com/Consensys/teku) without running tests or loading test code into the agent's context.
 
@@ -17,13 +17,13 @@ The skill is a single `SKILL.md` file. Put it in a folder named `ignore-tests-te
 ### Claude Code: all projects
 
 ```bash
-git clone https://github.com/StefanBratanov/ignore-tests-teku.git ~/.claude/skills/ignore-tests-teku
+git clone https://github.com/StefanBratanov/ignore-tests-teku-skill.git ~/.claude/skills/ignore-tests-teku
 ```
 
 On Windows (PowerShell):
 
 ```powershell
-git clone https://github.com/StefanBratanov/ignore-tests-teku.git "$env:USERPROFILE\.claude\skills\ignore-tests-teku"
+git clone https://github.com/StefanBratanov/ignore-tests-teku-skill.git "$env:USERPROFILE\.claude\skills\ignore-tests-teku"
 ```
 
 ### Claude Code: one Teku checkout
@@ -31,7 +31,7 @@ git clone https://github.com/StefanBratanov/ignore-tests-teku.git "$env:USERPROF
 From the root of your Teku clone:
 
 ```bash
-git clone https://github.com/StefanBratanov/ignore-tests-teku.git .claude/skills/ignore-tests-teku
+git clone https://github.com/StefanBratanov/ignore-tests-teku-skill.git .claude/skills/ignore-tests-teku
 ```
 
 Teku's `.gitignore` already ignores `.claude/`, so the skill won't show up in your commits.
