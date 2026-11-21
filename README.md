@@ -6,9 +6,9 @@ Teku's test suites take minutes to run, and the test classes are long, so readin
 
 - **does not run tests**: no `test`, `integrationTest`, `referenceTest`, `acceptanceTest`, `propertyTest`, `jmh`, `build` or `check`
 - **does not read test code**: it skips `src/test`, `src/testFixtures`, `src/integration-test`, `src/property-test`, `src/jmh`, `src/referenceTest`, the test-only modules and `build/` test output, and leaves them out of searches
-- **does not write tests**: it lists the test files a change probably affects instead of editing them
-- **checks changes by compiling production code only**: `./gradlew :<module>:compileJava`, plus `spotlessApply`
-- **ends each change with a short note** that tests were not run and which test files may need attention
+- **does not write tests**: no new tests and no changes to what existing tests assert. It lists the test files whose behaviour a change probably affects instead
+- **keeps everything compiling, tests included**: after a production change it compiles the test source sets too. If the change breaks them, it reads only the few lines around each compiler error and applies the smallest mechanical fix, such as an updated call, a new constructor argument or an import. If a fix would need a changed assertion or a removed test, it stops and asks
+- **ends each change with a short note** that tests were not run, which test files it edited for compilation, and which may need behavioural updates
 
 ## Installation
 
@@ -60,9 +60,9 @@ Then work as usual:
 > Add a debug log when ForkChoice rejects an execution payload envelope
 ```
 
-The agent edits `src/main`, runs `./gradlew :ethereum:statetransition:compileJava`, and ends with something like:
+The agent edits `src/main`, runs `./gradlew :ethereum:statetransition:compileJava :ethereum:statetransition:compileTestJava` (plus dependent modules when signatures change), fixes any test compilation errors locally, and ends with something like:
 
-> Tests not run. Likely affected: `ethereum/statetransition/src/test/java/.../ForkChoiceTest.java`
+> Tests not run. Edited for compilation: `.../ForkChoiceTestBase.java` (new constructor argument). May need behavioural updates: `.../ForkChoiceTest.java`
 
 ### Lifting the restriction
 
@@ -71,5 +71,7 @@ If you ask the agent to run, read or write a specific test, it does so for that 
 ## Limitations
 
 - A skill is guidance, not enforcement. The agent can still slip, for example by opening a test file that shows up in a stack trace. If you need a hard guarantee, add a `PreToolUse` hook in Claude Code that rejects file reads and shell commands matching the test paths.
-- If a change breaks test compilation, compiling only `compileJava` won't catch it. Run `./gradlew compileTestJava` or the relevant tests yourself before opening a PR.
+- Compiling proves the tests still build, not that they pass. Run the relevant tests yourself before opening a PR.
+- Reference tests are not compiled (`compileReferenceTestJava` first downloads and generates the spec fixtures), so a change that breaks only `eth-reference-tests` won't be caught.
+- Fixing compilation does load some test code, but only the lines around each compiler error, so a large API change can still use noticeable context.
 - The path list matches Teku's current layout. If new test source sets or modules are added, update the tables in `SKILL.md`.

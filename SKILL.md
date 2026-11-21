@@ -1,12 +1,14 @@
 ---
 name: ignore-tests-teku
-description: Work on the Teku codebase without running tests or reading test code. Use when the user says "ignore tests", "no tests", "skip tests", "don't run tests", or invokes /ignore-tests-teku. Keeps test sources, test fixtures and test output out of the context and verifies changes by compiling production code only.
+description: Work on the Teku codebase without running tests or reading test code beyond what is needed to keep it compiling. Use when the user says "ignore tests", "no tests", "skip tests", "don't run tests", or invokes /ignore-tests-teku. Keeps test sources and test output out of the context, never runs tests, and only touches test code to fix compilation errors caused by production changes.
 ---
 
 # Ignore tests (Teku)
 
 The user wants this session focused on production code. Tests cost time (Gradle test runs
-take minutes) and context (test classes are long and repetitive). Until the user says otherwise:
+take minutes) and context (test classes are long and repetitive). The one exception is
+compilation: the whole project, tests included, must still compile after every change.
+Until the user says otherwise:
 
 ## Do not run tests
 
@@ -15,11 +17,13 @@ Never run any of these, in the foreground or in the background:
 - `./gradlew test`, `:<module>:test`, `--tests ...`
 - `integrationTest`, `referenceTest`, `acceptanceTest`, `propertyTest`, `jmh`
 - `./gradlew build` and `check` (they run tests); `ManualReferenceTestRunner`
-- `convertRefTests`, `expandRefTests`, `generateReferenceTestClasses` (reference test setup)
+- `convertRefTests`, `expandRefTests`, `generateReferenceTestClasses`, `compileReferenceTestJava`
+  (reference test setup downloads and generates fixtures)
 
 ## Do not load test code
 
-Do not Read, `cat`, `sed -n`, `head` or otherwise open files under these paths:
+Do not Read, `cat`, `sed -n`, `head` or otherwise open files under these paths, except as
+described in [Keep tests compiling](#keep-tests-compiling):
 
 | Path | What it is |
 |---|---|
@@ -42,29 +46,56 @@ If a usage only shows up in tests, report the file path and line from the search
 
 ## Do not write tests
 
-Do not add, update or delete test classes, even when a production change breaks a test's
-compilation or behaviour. Instead, tell the user which tests are likely affected (by path,
-found with a filename-only search such as `Glob **/src/test/**/FooTest.java`).
+Do not add new tests and do not change what existing tests check. No new test methods, no
+edited assertions or expected values, no deleted or `@Disabled` tests. If a production change
+probably alters test behaviour, list the likely affected test files instead (found with a
+filename-only search such as `Glob **/src/test/**/FooTest.java`).
 
-## How to verify instead
+## Keep tests compiling
 
-Compile only production source sets:
+After production code compiles, compile the test source sets of the modules you changed
+**and of every module that depends on them** (a changed signature in `ethereum:spec` breaks
+tests all over the repo). When in doubt, compile everything:
+
+```bash
+./gradlew compileJava compileTestFixturesJava compileTestJava compileIntegrationTestJava compilePropertyTestJava compileJmhJava
+```
+
+Or per module, e.g. `./gradlew :ethereum:statetransition:compileTestJava`. Module paths
+follow the folders, so `networking/eth2` is `:networking:eth2`.
+
+If test compilation fails because of your change, fix it with minimal context:
+
+1. Take the file and line from each compiler error. Use `--quiet` or tail the output, since
+   only the errors are needed.
+2. Read only a small window around each error (about 20 lines, using `offset`/`limit`),
+   never the whole test class. Read more only if the fix needs it, such as the enclosing
+   method or the imports block.
+3. Make the smallest mechanical fix that restores compilation: update a call to a changed
+   signature, pass a new constructor argument (prefer an existing test helper or a
+   `mock(...)`), rename a method or type, fix an import, or adjust a type.
+4. Keep the test's intent. If the only way to compile is to change what the test asserts,
+   or to remove the test, stop and tell the user rather than doing it.
+5. Recompile and repeat until clean. Fix `testFixtures` errors first, because they cascade
+   into the test source sets of every module that uses them.
+
+Fixing compilation is not permission to run the tests you touched.
+
+## Production verification
 
 ```bash
 ./gradlew :<module>:compileJava          # e.g. :ethereum:statetransition:compileJava
 ./gradlew compileJava                    # everything, when the change spans modules
-./gradlew spotlessApply                  # formatting, safe to run
+./gradlew spotlessApply                  # formatting, also formats test files you fixed
 ```
-
-Do not run `compileTestJava`, `compileTestFixturesJava` or `compileIntegrationTestJava`.
-Module paths follow the folders, e.g. `networking/eth2` is `:networking:eth2`.
-
-Check compile output with `--quiet` or by tailing the last lines. Only the errors are needed.
 
 ## Wrapping up
 
-End each change with one line saying tests were not run, plus any test files that probably
-need updating, so the user can run or fix them later.
+End each change with a short note that says:
+
+- tests were not run
+- which test files were edited only to fix compilation
+- which test files probably need behavioural updates, so the user can run or fix them later
 
 ## Turning it off
 
